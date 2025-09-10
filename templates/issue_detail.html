@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}{{ issue.title }} - Urban Issue Reporter{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="max-width: 1000px; margin: 2rem auto;">
+        <!-- Back Button -->
+        <a href="{{ url_for('index') }}" class="btn" style="margin-bottom: 2rem;">
+            <i class="fas fa-arrow-left"></i> Back to Issues
+        </a>
+        
+        <!-- Issue Details -->
+        <div class="card">
+            <div class="issue-header">
+                <div>
+                    <h1 class="issue-title">{{ issue.title }}</h1>
+                    <div class="issue-meta">
+                        <span class="badge badge-{{ issue.category }}">
+                            {% if issue.category == 'traffic' %}🚦 Traffic
+                            {% elif issue.category == 'sanitation' %}🗑️ Sanitation
+                            {% elif issue.category == 'infrastructure' %}🏗️ Infrastructure
+                            {% elif issue.category == 'water' %}💧 Water
+                            {% elif issue.category == 'electricity' %}⚡ Electricity
+                            {% elif issue.category == 'environment' %}🌱 Environment
+                            {% elif issue.category == 'security' %}🔒 Security
+                            {% else %}📋 Other{% endif %}
+                        </span>
+                        
+                        <span class="badge badge-{{ issue.status }}">
+                            {% if issue.status == 'pending' %}⏳ Pending
+                            {% elif issue.status == 'in-progress' %}🔄 In Progress
+                            {% elif issue.status == 'resolved' %}✅ Resolved
+                            {% elif issue.status == 'rejected' %}❌ Rejected
+                            {% else %}{{ issue.status.title() }}{% endif %}
+                        </span>
+                        
+                        <span class="badge" style="background: #f1c40f; color: #2c3e50;">
+                            📊 {{ issue.priority.title() }} Priority
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Admin Actions -->
+                {% if session.is_admin %}
+                <div style="margin-left: auto;">
+                    <button class="btn btn-warning" onclick="showStatusModal()">
+                        <i class="fas fa-edit"></i> Update Status
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="issue-location">
+                <i class="fas fa-map-marker-alt"></i>
+                {{ issue.address }}
+                <span style="color: #999; margin-left: 1rem;">
+                    ({{ "%.6f"|format(issue.latitude) }}, {{ "%.6f"|format(issue.longitude) }})
+                </span>
+            </div>
+            
+            <div class="issue-description" style="font-size: 1.1rem; line-height: 1.7; margin: 2rem 0;">
+                {{ issue.description }}
+            </div>
+            
+            {% if issue.image_filename %}
+            <div style="margin: 2rem 0;">
+                <img src="{{ url_for('static', filename='../uploads/' + issue.image_filename) }}" 
+                     alt="Issue Image" 
+                     style="max-width: 100%; height: auto; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+            </div>
+            {% endif %}
+            
+            <!-- Map -->
+            <div id="map" class="map-container"></div>
+            
+            <div class="issue-actions" style="border-top: 1px solid #eee; padding-top: 1.5rem; margin-top: 1.5rem;">
+                <button class="upvote-btn" onclick="upvoteIssue({{ issue.id }})">
+                    <i class="fas fa-thumbs-up"></i>
+                    <span id="upvotes-{{ issue.id }}">{{ issue.upvotes }}</span> Upvotes
+                </button>
+                
+                <div style="margin-left: auto; color: #666;">
+                    <i class="fas fa-user"></i> Reported by: {{ issue.reporter_name or 'Anonymous' }} |
+                    <i class="fas fa-calendar"></i> {{ issue.created_at[:19] }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comments Section -->
+        <div class="card" style="margin-top: 2rem;">
+            <h2 style="margin-bottom: 2rem;">
+                <i class="fas fa-comments"></i> Community Discussion ({{ comments|length }})
+            </h2>
+            
+            <!-- Add Comment Form -->
+            {% if session.user_id %}
+            <form method="POST" action="{{ url_for('add_comment', issue_id=issue.id) }}" style="margin-bottom: 3rem;">
+                <div class="form-group">
+                    <textarea name="content" class="form-control textarea" 
+                              placeholder="Share your thoughts or provide updates..." required></textarea>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-paper-plane"></i> Post Comment
+                </button>
+            </form>
+            {% else %}
+            <div style="text-align: center; padding: 2rem; background: #f8f9fa; border-radius: 10px; margin-bottom: 3rem;">
+                <p style="margin-bottom: 1rem; color: #666;">Please login to join the discussion</p>
+                <a href="{{ url_for('login') }}" class="btn">
+                    <i class="fas fa-sign-in-alt"></i> Login to Comment
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Comments List -->
+            {% if comments %}
+                {% for comment in comments %}
+                <div class="comment" style="border-left: 4px solid {{ '#667eea' if comment.is_official else '#ddd' }}; 
+                                                 padding: 1.5rem; margin-bottom: 1.5rem; 
+                                                 background: {{ '#f0f4ff' if comment.is_official else '#f9f9f9' }}; 
+                                                 border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <strong>{{ comment.user_name }}</strong>
+                            {% if comment.is_official %}
+                                <span class="badge" style="background: #667eea; color: white; margin-left: 0.5rem;">
+                                    <i class="fas fa-shield-alt"></i> Official
+                                </span>
+                            {% endif %}
+                        </div>
+                        <small style="color: #666;">
+                            <i class="fas fa-clock"></i> {{ comment.created_at[:19] }}
+                        </small>
+                    </div>
+                    <p style="margin: 0; line-height: 1.6; color: #333;">{{ comment.content }}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 3rem; color: #666;">
+                    <i class="fas fa-comment" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                    <p>No comments yet. Be the first to share your thoughts!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Status Update Modal (Admin Only) -->
+{% if session.is_admin %}
+<div id="statusModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                               background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 2rem; border-radius: 20px; max-width: 500px; width: 90%;">
+        <h3 style="margin-bottom: 1.5rem;">
+            <i class="fas fa-edit"></i> Update Issue Status
+        </h3>
+        <form method="POST" action="{{ url_for('update_status', issue_id=issue.id) }}">
+            <div class="form-group">
+                <label for="status">New Status</label>
+                <select name="status" id="status" class="form-control" required>
+                    <option value="pending" {{ 'selected' if issue.status == 'pending' }}>⏳ Pending</option>
+                    <option value="in-progress" {{ 'selected' if issue.status == 'in-progress' }}>🔄 In Progress</option>
+                    <option value="resolved" {{ 'selected' if issue.status == 'resolved' }}>✅ Resolved</option>
+                    <option value="rejected" {{ 'selected' if issue.status == 'rejected' }}>❌ Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="comment">Update Comment (Optional)</label>
+                <textarea name="comment" id="comment" class="form-control textarea" 
+                          placeholder="Provide additional information about this status update..."></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn" style="background: #ccc;" onclick="hideStatusModal()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Update Status
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize map
+let map = L.map('map').setView([{{ issue.latitude }}, {{ issue.longitude }}], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.marker([{{ issue.latitude }}, {{ issue.longitude }}]).addTo(map)
+    .bindPopup('{{ issue.title }}')
+    .openPopup();
+
+// Upvote function
+async function upvoteIssue(issueId) {
+    {% if session.user_id %}
+    try {
+        const response = await fetch(`/upvote/${issueId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById(`upvotes-${issueId}`).textContent = data.upvotes;
+        } else {
+            alert('Error: Please try again');
+        }
+    } catch (error) {
+        alert('Error: Please try again');
+    }
+    {% else %}
+    alert('Please login to upvote issues!');
+    {% endif %}
+}
+
+{% if session.is_admin %}
+function showStatusModal() {
+    document.getElementById('statusModal').style.display = 'flex';
+}
+
+function hideStatusModal() {
+    document.getElementById('statusModal').style.display = 'none';
+}
+{% endif %}
+</script>
+{% endblock %}

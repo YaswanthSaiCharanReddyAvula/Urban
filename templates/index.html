@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    {% if not session.user_id %}
+    <section class="hero">
+        <h1><i class="fas fa-city"></i> Urban Issue Reporter</h1>
+        <p>Help make your city better by reporting and tracking urban issues</p>
+        <a href="{{ url_for('register') }}" class="btn" style="font-size: 1.2rem; padding: 1rem 2rem;">
+            <i class="fas fa-rocket"></i> Get Started
+        </a>
+    </section>
+    {% endif %}
+    
+    <!-- Filters Section -->
+    <div class="filters">
+        <h2><i class="fas fa-filter"></i> Filter Issues</h2>
+        <form method="GET" class="filter-grid">
+            <div class="form-group">
+                <label for="category"><i class="fas fa-tags"></i> Category</label>
+                <select name="category" id="category" class="form-control">
+                    <option value="">All Categories</option>
+                    <option value="traffic" {{ 'selected' if current_category == 'traffic' }}>🚦 Traffic</option>
+                    <option value="sanitation" {{ 'selected' if current_category == 'sanitation' }}>🗑️ Sanitation</option>
+                    <option value="infrastructure" {{ 'selected' if current_category == 'infrastructure' }}>🏗️ Infrastructure</option>
+                    <option value="water" {{ 'selected' if current_category == 'water' }}>💧 Water</option>
+                    <option value="electricity" {{ 'selected' if current_category == 'electricity' }}>⚡ Electricity</option>
+                    <option value="environment" {{ 'selected' if current_category == 'environment' }}>🌱 Environment</option>
+                    <option value="security" {{ 'selected' if current_category == 'security' }}>🔒 Security</option>
+                    <option value="other" {{ 'selected' if current_category == 'other' }}>📋 Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="status"><i class="fas fa-info-circle"></i> Status</label>
+                <select name="status" id="status" class="form-control">
+                    <option value="">All Status</option>
+                    <option value="pending" {{ 'selected' if current_status == 'pending' }}>Pending</option>
+                    <option value="in-progress" {{ 'selected' if current_status == 'in-progress' }}>In Progress</option>
+                    <option value="resolved" {{ 'selected' if current_status == 'resolved' }}>Resolved</option>
+                    <option value="rejected" {{ 'selected' if current_status == 'rejected' }}>Rejected</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="search"><i class="fas fa-search"></i> Search</label>
+                <input type="text" name="search" id="search" class="form-control" 
+                       placeholder="Search issues..." value="{{ search_term or '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn" style="width: 100%;">
+                    <i class="fas fa-search"></i> Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Issues Grid -->
+    <div class="card-grid">
+        {% if issues %}
+            {% for issue in issues %}
+            <div class="card issue-card">
+                <div class="issue-header">
+                    <div>
+                        <h3 class="issue-title">{{ issue.title }}</h3>
+                        <div class="issue-meta">
+                            <span class="badge badge-{{ issue.category }}">
+                                {% if issue.category == 'traffic' %}🚦 Traffic
+                                {% elif issue.category == 'sanitation' %}🗑️ Sanitation
+                                {% elif issue.category == 'infrastructure' %}🏗️ Infrastructure
+                                {% elif issue.category == 'water' %}💧 Water
+                                {% elif issue.category == 'electricity' %}⚡ Electricity
+                                {% elif issue.category == 'environment' %}🌱 Environment
+                                {% elif issue.category == 'security' %}🔒 Security
+                                {% else %}📋 Other{% endif %}
+                            </span>
+                            
+                            <span class="badge badge-{{ issue.status }}">
+                                {% if issue.status == 'pending' %}⏳ Pending
+                                {% elif issue.status == 'in-progress' %}🔄 In Progress
+                                {% elif issue.status == 'resolved' %}✅ Resolved
+                                {% elif issue.status == 'rejected' %}❌ Rejected
+                                {% else %}{{ issue.status.title() }}{% endif %}
+                            </span>
+                            
+                            <span class="badge" style="background: #f1c40f; color: #2c3e50;">
+                                📊 {{ issue.priority.title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="issue-location">
+                    <i class="fas fa-map-marker-alt"></i>
+                    {{ issue.address }}
+                </div>
+                
+                <div class="issue-description">
+                    {{ issue.description[:150] }}{% if issue.description|length > 150 %}...{% endif %}
+                </div>
+                
+                {% if issue.image_filename %}
+                <div style="margin: 1rem 0;">
+                    <img src="{{ url_for('static', filename='../uploads/' + issue.image_filename) }}" 
+                         alt="Issue Image" 
+                         style="max-width: 100%; height: 200px; object-fit: cover; border-radius: 10px;">
+                </div>
+                {% endif %}
+                
+                <div class="issue-actions">
+                    <button class="upvote-btn" onclick="upvoteIssue({{ issue.id }})">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span id="upvotes-{{ issue.id }}">{{ issue.upvotes }}</span>
+                    </button>
+                    
+                    <a href="{{ url_for('issue_detail', issue_id=issue.id) }}" class="btn" style="font-size: 0.9rem;">
+                        <i class="fas fa-eye"></i> View Details
+                    </a>
+                    
+                    <small style="color: #666; margin-left: auto;">
+                        <i class="fas fa-user"></i> {{ issue.reporter_name or 'Anonymous' }} |
+                        <i class="fas fa-calendar"></i> {{ issue.created_at[:10] }}
+                    </small>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card" style="text-align: center; grid-column: 1/-1;">
+                <i class="fas fa-search" style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+                <h2>No issues found</h2>
+                <p style="color: #666; margin-bottom: 2rem;">
+                    {% if session.user_id %}
+                        Be the first to report an issue in your area!
+                    {% else %}
+                        Join our community to report and track urban issues.
+                    {% endif %}
+                </p>
+                {% if session.user_id %}
+                    <a href="{{ url_for('report_issue') }}" class="btn">
+                        <i class="fas fa-plus-circle"></i> Report First Issue
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('register') }}" class="btn">
+                        <i class="fas fa-user-plus"></i> Join Now
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function upvoteIssue(issueId) {
+    {% if session.user_id %}
+    try {
+        const response = await fetch(`/upvote/${issueId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById(`upvotes-${issueId}`).textContent = data.upvotes;
+        } else {
+            alert('Error: Please try again');
+        }
+    } catch (error) {
+        alert('Error: Please try again');
+    }
+    {% else %}
+    alert('Please login to upvote issues!');
+    {% endif %}
+}
+</script>
+{% endblock %}
