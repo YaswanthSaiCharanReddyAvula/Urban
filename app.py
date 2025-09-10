@@ -523,3 +523,12 @@ if __name__ == '__main__':
     print("📧 Email notifications enabled with Gmail")
     print("📮 Sending emails from: sudheersugandham@gmail.com")
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+if __name__ == '__main__':
+    os.makedirs('uploads', exist_ok=True)
+    init_db()
+    app.run(debug=True, host='0.0.0.0', port=5000)
+else:
+    # Render/Gunicorn startup also needs DB + uploads folder
+    os.makedirs('uploads', exist_ok=True)
+    init_db()
